@@ -4,6 +4,9 @@
 #define MAX_LENGTH 1024
 #define TOKEN_SIZE 8
 #define T void *
+#define OPERATION(opt, a, b) a opt b
+#define IF(arg, opt1, opt2) arg ? opt1 : opt2
+// #define FUNCTION(function_name, )
 
 struct lisp_pair {
     T val;
@@ -11,15 +14,36 @@ struct lisp_pair {
 };
 
 struct lisp_exp {
-    T exp[3];
-    T type[3];
+    T exp[4];
+    T type[4];
 };
 
 #define lisp_pair struct lisp_pair
 #define lisp_exp struct lisp_exp
 
-int idx = 0, opt_idx = 0;
+int idx = 0, opt_idx = 0, var_cnt = 0;
 lisp_pair *operator_list[MAX_LENGTH];
+const char *constant_list[MAX_LENGTH] = {"pi"};
+
+char *variable_list[MAX_LENGTH];
+int int_list[MAX_LENGTH];
+
+int is_constant(char *val) {
+    for (int i = 0; i < 1; i++)
+        if (!strcmp(constant_list[i], val)) return 1;
+
+    for (int i = 0; i < var_cnt; i++)
+        if (!strcmp(variable_list[i], val)) return 1;
+
+    return 0;
+}
+
+int get_var_cnt(char *val) {
+    for (int i = 0; i < var_cnt; i++)
+        if (!strcmp(variable_list[i], val)) return i;
+
+    return -1;
+}
 
 // let's tokenize the string first
 char **tokenize(char *s) {
@@ -91,6 +115,10 @@ T read_from_token(char **tokens, int length, int idx1, lisp_exp *paren_exp) {
 
     if (!strcmp(token, "(")) {
         lisp_exp *L = malloc(sizeof(lisp_exp));
+        for (int p = 0; p < 4; p++) {
+            L->exp[p] = NULL;
+            L->type[p] = NULL;
+        }
 
         int old_idx = idx1;
         *token_type = 0;
@@ -116,6 +144,13 @@ T read_from_token(char **tokens, int length, int idx1, lisp_exp *paren_exp) {
         paren_exp->exp[idx1] = atom(token);
         paren_exp->type[idx1] = token_type;
 
+        if (idx1 != 0) { /*variable_list[var_cnt++] =*/
+            lisp_pair *tmp_pair = (lisp_pair *)paren_exp->exp[idx1];
+            if (*(int *)tmp_pair->type == 2) {
+                char *symb = (char *)tmp_pair->val;
+                if (!is_constant(symb)) variable_list[var_cnt++] = symb;
+            }
+        }
         return paren_exp->exp[idx1];
     }
 }
@@ -138,7 +173,8 @@ void print(lisp_exp *token_list) {
 
     lisp_exp *walk = token_list;
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
+        if (!walk) continue;
         int *type = walk->type[i];
         if (!type) continue;
 
@@ -149,9 +185,6 @@ void print(lisp_exp *token_list) {
         } else {
             lisp_exp *paired = (lisp_exp *)walk->exp[i];
             print_pair((lisp_pair *)paired->exp);
-            if (i == 0) {
-                operator_list[opt_idx++] = (lisp_pair *)paired->exp;
-            }
         }
     }
 }
@@ -171,34 +204,95 @@ char *get_modified_string(char *s, char *modified_string) {
     return modified_string;
 }
 
-// void eval(lisp_exp *token_list) {
-//     if (token_list == NULL) return;
-//
-//     lisp_exp *walk = token_list;
-//
-//     for (int i = 0; i < 3; i++) {
-//         int *type = walk->type[i];
-//         if (!type) continue;
-//
-//         if (!(*type)) {
-//             printf("{");
-//             eval((lisp_exp *)walk->exp[i]);
-//             printf("}");
-//         } else {
-//             lisp_exp *paired = (lisp_exp *)walk->exp[i];
-//             print_pair((lisp_pair *)paired->exp);
-//             if (i == 0) {
-//                 operator_list[opt_idx++] = (lisp_pair *)paired->exp;
-//             }
-//         }
-//     }
-// }
+int res(char *optr, void *val1, void *val2, void *val3) {
+    if (!strcmp(optr, "+"))
+        return OPERATION(+, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "-"))
+        return OPERATION(-, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "*"))
+        return OPERATION(*, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "/"))
+        return OPERATION(/, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "%"))
+        return OPERATION(%, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, ">"))
+        return OPERATION(>, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "<"))
+        return OPERATION(<, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, ">="))
+        return OPERATION(>=, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "<="))
+        return OPERATION(<=, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "="))
+        return OPERATION(=, *(int *)val1, *(int *)val2);
+    else if (!strcmp(optr, "if"))
+        return IF(*(int *)val1, *(int *)val2, *(int *)val3);
+    else if (!strcmp(optr, "define")) {
+        char *symb = (char *)val1;
+        int_list[get_var_cnt(symb)] = *(int *)val2;
+        return int_list[get_var_cnt(symb)];
+    } else if (!strcmp(optr, "begin")) {
+        return (*(int *)val2);
+    }
+
+    return -1;
+}
+
+int eval(lisp_exp *token_list) {
+    if (token_list == NULL) return -1;
+
+    lisp_exp *walk = token_list;
+
+    T e_val[5] = {NULL, NULL, NULL, NULL, NULL};
+
+    char *optr = NULL;
+    for (int i = 0; i < 4; i++) {
+        int *type = walk->type[i];
+        if (!type) continue;
+
+        T exp = walk->exp[i];
+
+        if (!i) {
+            optr = (char *)((lisp_pair *)exp)->val;
+            continue;
+        }
+
+        if (!*(type)) {
+            int val = eval((lisp_exp *)exp);
+            e_val[i] = &val;
+            continue;
+        }
+
+        lisp_pair *pair = (lisp_pair *)exp;
+
+        if (*(int *)pair->type == 1) {
+            int val = *(int *)((lisp_pair *)exp)->val;
+            e_val[i] = &val;
+        } else if (*(int *)pair->type == 2) {
+            char *symb = (char *)((lisp_pair *)exp)->val;
+            // printf("%s", symb);
+            if (strcmp(optr, "define") && strcmp(optr, "begin")) {
+                // printf("%s\n", symb);
+                // printf("%d\n", int_list[get_var_cnt(symb)]);
+                e_val[i] = &int_list[get_var_cnt(symb)];
+            } else {
+                e_val[i] = symb;
+            }
+        }
+    }
+
+    return res(optr, e_val[1], e_val[2], e_val[3]);
+}
 
 int main(void) {
     // char s[MAX_LENGTH] = "(begin (define r 10) (* pi (* r r)))";
     // char s[MAX_LENGTH] = "(5)";
     // char s[MAX_LENGTH] = "(sqrt (* 2 2))";
-    char s[MAX_LENGTH] = "(begin (define r 10) (* pi (* r r)))";
+    // char s[MAX_LENGTH] = "(begin (define r 10) (* pi (* r r)))";
+
+    // char s[MAX_LENGTH] = "(* 3 (+ 1 2))";
+    char s[MAX_LENGTH] = "(begin (define r (* 10 10)) (* 3 (* r r)))";
+
     char modified_string[MAX_LENGTH];
 
     int i = 0;
@@ -215,19 +309,25 @@ int main(void) {
     lisp_exp *val =
         (lisp_exp *)read_from_token(tokenized_array, list_length, 0, NULL);
 
-    printf("{");
-    print(val);
-    printf("}");
+    // eval(val);
+    printf("%d\n", eval(val));
+    // print(val);
 
-    printf("\n");
+    // printf("\n");
 
     i = 0;
 
-    for (int j = 0; j < opt_idx; j++) {
-        print_pair(operator_list[j]);
-    }
+    // for (int j = 0; j < opt_idx; j++) {
+    //     print_pair(operator_list[j]);
+    // }
+
+    // for (int j = 0; j < var_cnt; j++) {
+    //     printf("%s ", variable_list[j]);
+    // }
 
     printf("\n");
+
+    // printf("%d", OPERATION(+, 3, 2));
     // while (tokenized_array[i] != NULL) free(tokenized_array[i++]);
     // free(tokenized_array);
 }
