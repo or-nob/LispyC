@@ -203,9 +203,10 @@ char *get_modified_string(char *s, char *modified_string) {
 }
 
 int res(char *optr, void *val1, void *val2, void *val3) {
-    if (!strcmp(optr, "+"))
+    if (!strcmp(optr, "+")) {
+        printf("%d %d", *(int *)val1, *(int *)val2);
         return OPERATION(+, *(int *)val1, *(int *)val2);
-    else if (!strcmp(optr, "-"))
+    } else if (!strcmp(optr, "-"))
         return OPERATION(-, *(int *)val1, *(int *)val2);
     else if (!strcmp(optr, "*"))
         return OPERATION(*, *(int *)val1, *(int *)val2);
@@ -215,22 +216,23 @@ int res(char *optr, void *val1, void *val2, void *val3) {
         return OPERATION(%, *(int *)val1, *(int *)val2);
     else if (!strcmp(optr, ">"))
         return OPERATION(>, *(int *)val1, *(int *)val2);
-    else if (!strcmp(optr, "<"))
+    else if (!strcmp(optr, "<")) {
         return OPERATION(<, *(int *)val1, *(int *)val2);
-    else if (!strcmp(optr, ">="))
+    } else if (!strcmp(optr, ">="))
         return OPERATION(>=, *(int *)val1, *(int *)val2);
     else if (!strcmp(optr, "<="))
         return OPERATION(<=, *(int *)val1, *(int *)val2);
     else if (!strcmp(optr, "="))
         return OPERATION(=, *(int *)val1, *(int *)val2);
-    else if (!strcmp(optr, "if"))
+    else if (!strcmp(optr, "if")) {
         return IF(*(int *)val1, *(int *)val2, *(int *)val3);
-    else if (!strcmp(optr, "define")) {
+    } else if (!strcmp(optr, "define")) {
         char *symb = (char *)val1;
         int_list[get_var_cnt(symb)] = *(int *)val2;
         return int_list[get_var_cnt(symb)];
-    } else if (!strcmp(optr, "begin"))
+    } else if (!strcmp(optr, "begin")) {
         return (*(int *)val2);
+    }
 
     return -1;
 }
@@ -255,19 +257,22 @@ int eval(lisp_exp *token_list) {
         }
 
         if (!*(type)) {
-            int *heapify = malloc(sizeof(int));
-            *heapify = eval((lisp_exp *)exp);
-            e_val[i] = heapify;
+            int val = eval((lisp_exp *)exp);
+            e_val[i] = &val;
             continue;
         }
 
         lisp_pair *pair = (lisp_pair *)exp;
 
         if (*(int *)pair->type == 1) {
-            e_val[i] = (int *)((lisp_pair *)exp)->val;
+            printf("%d %d", i, val);
+            int val = *(int *)((lisp_pair *)exp)->val;
+            e_val[i] = &val;
         } else if (*(int *)pair->type == 2) {
             char *symb = (char *)((lisp_pair *)exp)->val;
             if (strcmp(optr, "define") && strcmp(optr, "begin")) {
+                // printf("%s\n", symb);
+                // printf("%d\n", int_list[get_var_cnt(symb)]);
                 e_val[i] = &int_list[get_var_cnt(symb)];
             } else {
                 e_val[i] = symb;
