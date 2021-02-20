@@ -1,14 +1,14 @@
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #define MAX_LENGTH 1024
 #define TOKEN_SIZE 8
-#define T void *
 #define OPERATION(opt, a, b) a opt b
 #define IF(arg, opt1, opt2) arg ? opt1 : opt2
-// #define FUNCTION(function_name, )
 
+typedef void *T;
 typedef struct {
     T val;
     T type;
@@ -19,12 +19,40 @@ typedef struct {
     T type[4];
 } lisp_exp;
 
+char *optr_list[] = {"+", "-", "*", "/", "%", ">", "<", ">=", "<=", "="};
+
 int idx = 0, opt_idx = 0, var_cnt = 0;
 lisp_pair *operator_list[MAX_LENGTH];
 const char *constant_list[MAX_LENGTH] = {"pi"};
 
+T (*function_table[MAX_LENGTH])(T *args, int argc);
+
 char *variable_list[MAX_LENGTH];
 int int_list[MAX_LENGTH];
+
+int defined_func(char *func_name, void *val1, void *val2) {
+    int casted_val1 = INT32_MAX;
+    int casted_val2 = INT32_MAX;
+    if (val1) casted_val1 = *(int *)val1;
+    if (val2) casted_val2 = *(int *)val2;
+
+    if (!strcmp(func_name, "sqrt"))
+        return sqrt(casted_val1);
+    else if (!strcmp(func_name, "max"))
+        return casted_val1 > casted_val2 ? casted_val1 : casted_val2;
+    else if (!strcmp(func_name, "min"))
+        return casted_val1 < casted_val2 ? casted_val1 : casted_val2;
+    else if (!strcmp(func_name, "eq?"))
+        return casted_val1 == casted_val2;
+
+    return -1;
+}
+
+int is_optr(char *s) {
+    for (int i = 0; i < 10; i++)
+        if (!strcmp(s, optr_list[i])) return 1;
+    return 0;
+}
 
 int is_constant(char *val) {
     for (int i = 0; i < 1; i++)
@@ -142,7 +170,7 @@ T read_from_token(char **tokens, int length, int idx1, lisp_exp *paren_exp) {
         paren_exp->exp[idx1] = atom(token);
         paren_exp->type[idx1] = token_type;
 
-        if (idx1 != 0) { /*variable_list[var_cnt++] =*/
+        if (idx1 != 0) {
             lisp_pair *tmp_pair = (lisp_pair *)paren_exp->exp[idx1];
             if (*(int *)tmp_pair->type == 2) {
                 char *symb = (char *)tmp_pair->val;
@@ -231,6 +259,15 @@ int res(char *optr, void *val1, void *val2, void *val3) {
         return int_list[get_var_cnt(symb)];
     } else if (!strcmp(optr, "begin"))
         return (*(int *)val2);
+    else {
+        char *func_name = optr;
+
+        // TODO: I was so stupid to not have unlimited parameters.
+        int res = defined_func(func_name, val1, val2);
+        if (res == -1) { /* user defined */
+        } else           /*compiler defined*/
+            return res;
+    }
 
     return -1;
 }
@@ -287,6 +324,8 @@ void interpreter(void) {
         idx = 0;
         fgets(s, MAX_LENGTH, stdin);
 
+        // if (!strcmp(s, "exit")) break;
+
         char modified_string[MAX_LENGTH];
         char **tokenized_array =
             tokenize(get_modified_string(s, modified_string));
@@ -298,78 +337,17 @@ void interpreter(void) {
         lisp_exp *val =
             (lisp_exp *)read_from_token(tokenized_array, list_length, 0, NULL);
 
+        // print(val);
+        // printf("\n");
+
         printf("%d\n", eval(val));
     }
 }
 
 int main(void) {
     interpreter();
-    // // char s[MAX_LENGTH] = "(begin (define r 10) (* pi (* r r)))";
-    // // char s[MAX_LENGTH] = "(5)";
-    // // char s[MAX_LENGTH] = "(sqrt (* 2 2))";
-    // // char s[MAX_LENGTH] = "(begin (define r 10) (* pi (* r r)))";
 
-    // // char s[MAX_LENGTH] = "(* 3 (+ 1 2))";
-    // // char s[MAX_LENGTH] = "(begin (define r (* 10 10)) (* 3 (* r r)))";
-
-    // char s[MAX_LENGTH] = "(define r (* 10 10))";
-    // char s1[MAX_LENGTH] = "(* 3 (* r r))";
-    // // char s1[MAX_LENGTH] = "(* 3 (* 1 1))";
-
-    // char modified_string[MAX_LENGTH];
-    // char modified_string1[MAX_LENGTH];
-
-    // int i = 0;
-    // idx = 0;
-
-    // char **tokenized_array = tokenize(get_modified_string(s,
-    // modified_string)); char **tokenized_array1 =
-    //     tokenize(get_modified_string(s1, modified_string1));
-
-    // i = 0;
-
-    // while (tokenized_array[i] != NULL) i++;
-
-    // int list_length = i;
-
-    // i = 0;
-    // while (tokenized_array1[i] != NULL) i++;
-
-    // int list_length1 = i;
-
-    // idx = 0;
-
-    // lisp_exp *val =
-    //     (lisp_exp *)read_from_token(tokenized_array, list_length, 0, NULL);
-
-    // // for (int j = 0; j < var_cnt; j++) {
-    // //     printf("%s ", variable_list[j]);
-    // // }
-
-    // idx = 0;
-    // lisp_exp *val1 =
-    //     (lisp_exp *)read_from_token(tokenized_array1, list_length1, 0, NULL);
-
-    // // eval(val);
-    // printf("%d\n", eval(val));
-    // printf("%d\n", eval(val1));
-    // // print(val);
-
-    // // printf("\n");
-
-    // i = 0;
-
-    // // for (int j = 0; j < opt_idx; j++) {
-    // //     print_pair(operator_list[j]);
-    // // }
-
-    // // for (int j = 0; j < var_cnt; j++) {
-    // //     printf("%s ", variable_list[j]);
-    // // }
-
-    // printf("\n");
-
-    // // printf("%d", OPERATION(+, 3, 2));
-    // // while (tokenized_array[i] != NULL) free(tokenized_array[i++]);
-    // // free(tokenized_array);
+    // printf("%d", OPERATION(+, 3, 2));
+    // while (tokenized_array[i] != NULL) free(tokenized_array[i++]);
+    // free(tokenized_array);
 }
