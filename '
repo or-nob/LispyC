@@ -221,7 +221,6 @@ void print(lisp_exp *token_list) {
         if (!(*type)) {
             printf("{");
             print((lisp_exp *)walk->exp[i]);
-            // assert((lisp_exp *)walk->exp[i] != NULL);
             printf("}");
         } else {
             lisp_exp *paired = (lisp_exp *)walk->exp[i];
@@ -254,7 +253,7 @@ T res(char *optr, void *val1, void *val2, void *val3) {
             return &int_list[get_var_cnt(symb)];
         } else {
             functions[func_cnt++] = *(lisp_exp *)((*(lisp_exp *)val1).exp[2]);
-            // print(&functions[0]);
+            print(&functions[0]);
         }
     }
     if (isLambda) return NULL;
@@ -339,17 +338,12 @@ T eval(lisp_exp *token_list) {
 
         T exp = walk->exp[i];
 
-        if (!exp) continue;
-
         if (!i) {
             optr = (char *)((lisp_pair *)exp)->val;
             continue;
         }
 
         if (!*(type)) {
-            // print((lisp_exp *)exp);
-            // printf("\n");
-            // printf("%d", *(int *)eval((lisp_exp *)exp));
             int *heapify = malloc(sizeof(int));
             *heapify = *(int *)eval((lisp_exp *)exp);
             e_val[i] = heapify;
@@ -364,24 +358,12 @@ T eval(lisp_exp *token_list) {
             char *symb = (char *)((lisp_pair *)exp)->val;
             if (strcmp(optr, "define") && strcmp(optr, "begin")) {
                 e_val[i] = &int_list[get_var_cnt(symb)];
-            } else {
+            } else
                 e_val[i] = symb;
-            }
         }
     }
 
-    T result = res(optr, e_val[1], e_val[2], e_val[3]);
-    if (result) return result;
-
-    // Only lambda functions without local scopes.
-    int_list[var_cnt - 1] = *(int *)e_val[1];
-    lisp_exp lambda_exp = functions[0];
-    // print(lambda_exp.exp[2]);
-    // int res = *(int *)eval(lambda_exp.exp[2]);
-
-    // printf("%d", res);
-
-    return eval(lambda_exp.exp[2]);
+    return res(optr, e_val[1], e_val[2], e_val[3]);
 }
 
 void interpreter(void) {
@@ -409,9 +391,8 @@ void interpreter(void) {
         // print(val);
         // printf("\n");
         // printf("%d", isLambda);
-        // print(val);
         T res = eval(val);
-        if (!isLambda) printf("%d\n", *(int *)res);
+        // if (!isLambda) printf("%d\n", *(int *)res);
         isLambda = 0;
     }
 }
@@ -423,4 +404,3 @@ int main(void) {
     // while (tokenized_array[i] != NULL) free(tokenized_array[i++]);
     // free(tokenized_array);
 }
-
